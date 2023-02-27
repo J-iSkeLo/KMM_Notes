@@ -11,26 +11,38 @@ import shared
 
 struct ContentView: View {
     @ObservedObject private(set) var viewModel: ViewModel
+    
+    let columns = [
+            GridItem(.flexible()),
+            GridItem(.flexible()),
+        ]
 
        var body: some View {
            NavigationView {
                listView()
-               .navigationBarTitle("SpaceX Launches")
+               .navigationBarTitle("Recommended")
                .navigationBarItems(trailing:
                    Button("Reload") {
-                       self.viewModel.loadLaunches(forceReload: true)
+                       self.viewModel.loadRecommended(forceReload: true)
                })
            }
        }
 
        private func listView() -> AnyView {
-           switch viewModel.launches {
+           switch viewModel.recommended {
            case .loading:
                return AnyView(Text("Loading...").multilineTextAlignment(.center))
-           case .result(let launches):
-               return AnyView(List(launches) { launch in
-                   RocketLaunchRow(rocketLaunch: launch)
-               })
+           case .result(let recommended):
+               return AnyView(
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 15) {
+                        ForEach(recommended.data.products, id: \.id){ product in
+                            ProductRow(product: product)
+                        }
+                    }
+                    .padding(10)
+                }
+               )
            case .error(let description):
                return AnyView(Text(description).multilineTextAlignment(.center))
            }
@@ -47,20 +59,20 @@ extension ContentView {
 
     class ViewModel: ObservableObject {
         let sdk: ZooSDK
-        @Published var launches = LoadableLaunches.loading
+        @Published var recommended = LoadableLaunches.loading
 
         init(sdk: ZooSDK) {
             self.sdk = sdk
-            self.loadLaunches(forceReload: false)
+            self.loadRecommended(forceReload: false)
         }
 
-        func loadLaunches(forceReload: Bool) {
-            self.launches = .loading
-            sdk.getLaunches(forceReload: forceReload, completionHandler: { launches, error in
-                if let launches = launches {
-                    self.launches = .result(launches)
+        func loadRecommended(forceReload: Bool) {
+            self.recommended = .loading
+            sdk.getRecommended(forceReload: forceReload, completionHandler: { recommended, error in
+                if let recommended = recommended {
+                    self.recommended = .result(recommended)
                 } else {
-                    self.launches = .error(error?.localizedDescription ?? "error")
+                    self.recommended = .error(error?.localizedDescription ?? "error")
                 }
             })
         }
